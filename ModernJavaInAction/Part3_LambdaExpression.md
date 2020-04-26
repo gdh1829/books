@@ -113,6 +113,7 @@ process(() -> System.out.println("Hello World 3")); // Prints "Hello World 3" wi
 - Java 8 also added a specialized version of the functional interfaces in order to avoid autoboxing operations when the inputs or ouputs are primitives.
 - Such as Predicate\<Integer\> -> IntPredicate
 - Common Functional Interfaces added In Java 8
+
 ![CommonFunctionalInterfacesAddedInJava8.png](./CommonFunctionalInterfacesAddedInJava8.png)
 
 ## Lambda type-checking process
@@ -319,3 +320,107 @@ public static Fruit giveMeFruit(String fruit, Integer weight) {
             .apply(weight); // Function's apply method with an Integer weight parameter creates the requested Fruit.
 }
 ```
+
+## Methods to compose lambda expressions
+
+- Many funtional interfaces such as _Comparator_, _Function_, and _Predicate_ that are used to pass lambda expressions provide methods that allow composition.
+- In practice, it means you can combine several simple lambda expressions to build more complicated ones.
+- You may wonder how it's possible that there are additional methods in a functional interface. (After all, this goes against the definition of a functional interface!)
+- The trick is _default methods_ (they're not abstract methods).
+
+### Composing Comparators
+
+#### Comparing
+
+- `Comparator.comparing` returns a Comparator based on a _Function_ that extracts a key for comparison as follows:
+
+```java
+Comparator<Apple> c = Comparator.comparing(Apple::getWeight);
+```
+
+#### Reversed order
+
+- Comparator interface includes a default method `reversed` that reverses the ordering of a given comparator.
+
+```java
+// sorts by decreasing weight
+inventory.sort(comparing(Apple::getWeight).reversed());
+```
+
+#### Changing comparators
+
+- `thenComparing` method allows you to further refine the comparison.
+- It takes a function as parameter (like the method `comparing`) and provides a second _Comparator_ if two objects are considered equal using the initial _Comparator_.
+
+```java
+inventory.sort(
+  comparing(Apple::getWeight)
+  .reversed() // sorts by decreasing weight
+  .thenComparing(Apple::getCountry) // sorts further by country when two apples have same weight
+);
+```
+
+### Composing Predicates
+
+- The _Predicate_ interface includes three methods that let you reuse an existing _Predicate_ to create more complicated ones: `negate`, `and`, and `or`.
+- `Note that the precedence of methods _and_ and _or_ in the chain is from left to right: there is no equivalent of bracketing.`
+- ex,
+  - _a.or(b).and(c)_ must be read as _(a || b) && c_.
+  - a.and(b).or(c)_ must be read as _(a && b) || c_.
+
+```java
+// Produces the negation of the existing Predicate object redApple
+Predicate<Apple> notRedApple = redApple.negate()
+
+// Chains two predicates to produce another Predicate object
+Predicate<Apple> redAndHeavyApple = redApple.and(apple -> apple.getWeight() > 150);
+
+// Chains three predicates to construct a more complex Predicate object
+Predicate<Apple> redAndHeavyAppleOrGreen =
+  redApple.and(apple -> apple.getWeight() > 150)
+          .or(apple -> GREEN.equals(apple.getColor()));
+```
+
+### Composing functions
+
+- The _Function_ interface comes with two default methods for this, `andThen` and `compose`, which both return an instance of _Function_.
+- `andThen`
+  - returns a function that first applies a given function to an input and then applies another function to the result of that application.
+
+  ```java
+  Function<Integer, Integer> f = x -> x + 1;
+  Function<Integer, Integer> g = x -> x * 2;
+  Function<Integer, Integer> h = f.andThen(g); // In mathmatics, g(f(x)) or (g or f)(x)
+  int result = h.apply(1); // returns 4
+  ```
+
+- `compose`
+  - first applies the function given as argument to compose and then apply the function to the result.
+
+  ```java
+  Function<Integer, Integer> f = x -> x + 1;
+  Function<Integer, Integer> g = x -> x * 2;
+  Function<Integer, Integer> h = f.compose(g); // In mathmatics, f(g(x)) or (f or g)(x)
+  int result = h.apply(1); // returns 3
+  ```
+
+## How to express mathmatics operation
+
+### Calculate Trapezoid area
+
+![TrapezoidArea](./TrapezoidArea.png)
+
+- In mathmatics: {(윗변 + 아랫변) * 높이}/2
+- In Java 8:
+
+  ```java
+  public double integrate(DoubleFunction<Double> f, double a, double b) {
+    return (f.apply(a) + f.apply(b)) * (b - a) / 2.0
+  }
+  // or using DoubleUnaryOperator, which also avoids boxing the result
+  public double integrate(DoubleUnaryOperator f, double a, double b) {
+    return (f.applyAsDouble(a) + f.applyAsDouble(b)) * (b - a) / 2.0
+  }
+
+  integrate((x) -> x + 10, 3, 7); // returns 60
+  ```
